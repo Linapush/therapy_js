@@ -1,0 +1,37 @@
+version: '3.9'
+
+services:
+  therapy_js:
+    container_name: therapy_js
+    image: node:14
+    build:
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8005:8000" 
+    restart: on-failure
+    env_file:
+      - ./conf/.env
+    volumes:
+      - .:/code
+    networks:
+      - sirius_network
+    depends_on:
+      - postgres
+  postgres:
+    image: library/postgres:13.2
+    restart: always
+    environment:
+      POSTGRES_USER: linapush
+      POSTGRES_PASSWORD: somehardpassword
+      POSTGRES_DB: therapy_js
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - sirius_network
+
+volumes:
+  postgres_data:
+
+networks:
+  sirius_network:
+    external: True
