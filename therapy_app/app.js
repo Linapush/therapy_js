@@ -8,6 +8,8 @@ import userRoutes from './routes/users.js';
 import clientRoutes from './routes/patients.js';
 import sessionRoutes from './routes/sessions.js';
 import therapistsRoutes from './routes/therapists.js';
+import adminRoutes from './routes/admin.js';
+
 
 const app = express();
 const PORT = 8005;
@@ -21,7 +23,7 @@ app.use(bodyParser.json());
 app.use(session({
     secret: 'your-secret-key',
     resave: false,
-    saveUninitialized: true,
+    saveUninitialized: false,
     cookie: { maxAge: 600000 } // Сессия на 10 минут
 }));
 
@@ -32,6 +34,8 @@ app.use('/', userRoutes);
 app.use('/', clientRoutes);
 app.use('/', sessionRoutes);
 app.use('/', therapistsRoutes);
+app.use('/', adminRoutes);
+
 
 app.listen(PORT, () => {
     console.log(`Сервер запущен на http://localhost:${PORT}`);
