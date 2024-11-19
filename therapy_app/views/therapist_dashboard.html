@@ -32,7 +32,7 @@
         }
 
         async function deleteSession(id) { 
-            await fetch('/sessions/${id}', { method: 'DELETE' });
+            await fetch('/therapists/${id}', { method: 'DELETE' });
             loadSessions();
         }
 
