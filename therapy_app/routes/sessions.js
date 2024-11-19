@@ -1,65 +1,142 @@
-import router from './router.js'
-import pool from '../db.js'
+import dotenv from 'dotenv'
+import pool from '../db_connection.js';
+import router from '../utils/router.js';
+import verifyToken from '../utils/verify_token.js';
 
-TODO // закончить со статус кодами
 
-function checkAuth(req, res, next) {
-    if (req.session.user) {
-        next();
-    } else {
-        res.redirect('/login');
-    }
-}
+dotenv.config();
 
-router.get('/sessions', async (req, res) => {
-    try {
-        const patients = await pool.query('SELECT * FROM sessions');
-        res.status(200).json(patients.rows)
-    } catch (err) {
-        console.error("Не удалось получить сессию", err);
-        res.status(500).json({error: err.message})
-    }
-});
 
-router.post('/sessions', checkAuth, async(req, res) => {
-    const { first_name, last_name, phone, email } = req.body;
-    const client = req.session.client;
+router.get('/sessions', verifyToken, async (req, res) => {
 
     try {
-        const userId = userIdQuery.rows[0].id;
-        const result = await pool.query('INSERT INTO sessions (first_name, last_name, phone, email, userId) VALUES ($1, $2, $3, $4, $5)', [first_name, last_name, phone, email, userId]);
-        res.status(201).json(result.rows[0]);
+        const session = await pool.query('SELECT * FROM sessions');
+        res.status(200).json(session.rows)
     } catch (err) {
-        res.status(500).json({error: 'Ошибка при добавлении сессии'})
+        res.status(500).json({error: "Не удалось получить прием у терапевта"})
     }
-});
+}); 
 
-router.put('/sessions/:id', checkAuth, async (req, res) => {
-    const { id } = req.params;
-    const { first_name, last_name, phone, email } = req.body;
-    try {
-        const result = await pool.query('UPDATE sessions SET first_name = $1, last_name = $2, phone = $3, email = $4 WHERE id = $4', [first_name, last_name, phone, email])
-        if (result.rowCount === 0) {
-            return res.status(404).json({ error: "Сессия не найдена" });
-        }
-        res.status(200).json({ message: "Сессия обновлена", user: result.rows[0] })
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Ошибка в обновлении сессии" }); 
-    }
-});
 
-router.delete('/sessions/:id', checkAuth, async (req, res) => {
+router.get('/sessions/:id', verifyToken, async (req, res) => {
     const { id } = req.params;
     try {
-        const result = await pool.query('DELETE FROM sessions WHERE id = $1', [id]);
-        if (result.rowCount === 0) {
-            return res.status(404).json({ error: "Сессия не найдена" });
+        const session = await pool.query('SELECT * FROM sessions WHERE id = $1', [id]);
+        if (session.rows.length === 0) {
+            return res.status(404).json({ error: 'Такого приема у терапевта нет' });
         }
-        res.status(200).json({ message: "Сессия удалена" });
+        res.status(200).json(session);
+    } catch (err) {
+        res.status(500).json({error: "Не удалось получить прием у терапевта"});
+    }
+});
+
+
+router.post('/sessions', verifyToken, async (req, res) => {    
+    const { patient_id, therapist_id, date, time, notes } = req.body;
+    const user = req.user; 
+
+    if (!user || !user.id) {
+        console.warn('Попытка доступа без авторизации. Пользователь не найден в сессии.');
+        return res.status(403).json({ error: 'Пользователь не авторизован' });
+    }
+
+    try {
+        const userRole = user.role;
+        if (userRole !== 'admin') {
+            console.warn(`Отказ в доступе. Пользователь ${user.username} не имеет прав для добавления приема у терапевта.`);
+            return res.status(403).json({ error: 'У вас нет прав для добавления приема у терапевта' });
+        }
+        const result = await pool.query('INSERT INTO sessions (patient_id, therapist_id, date, time, notes) VALUES ($1, $2, $3, $4, $5)', [patient_id, therapist_id, date, time, notes]);
+        res.status(201).json('Прием у терапевта успешно добавлен:', result.rows[0]);
+    } catch (err) {
+        res.status(500).json({error: 'Ошибка при добавлении приема у терапевта'})
+    }
+});
+
+
+// router.put('/sessions/:id', verifyToken, async (req, res) => {
+//     const { id } = req.params;
+//     const { patient_id, therapist_id, date, time, notes } = req.body;
+//     const user = req.user;
+
+//     if (!user || user.role !== 'admin') {
+//         return res.status(403).json({ error: 'У вас нет прав для обновления приема.' });
+//     }
+
+//     try {
+//         const result = await pool.query(
+//             'UPDATE sessions SET patient_id = $1, therapist_id = $2, date = $3, time = $4, notes = $5 WHERE id = $6 RETURNING *',
+//             [patient_id, therapist_id, date, time, notes, id]
+//         );
+//         if (result.rows.length === 0) {
+//             return res.status(404).json({ error: 'Прием у терапевта не найден' });
+//         }
+//         res.json(result.rows[0]);
+//     } catch (err) {
+//         console.error(err);
+//         res.status(500).json({ error: 'Ошибка при обновлении приема.' });
+//     }
+// });
+
+
+router.put('/sessions/:id', verifyToken, async (req, res) => {
+    const { id } = req.params;
+    const { patient_id, therapist_id, date, time, notes } = req.body;
+    const user = req.user;
+
+    if (!user || user.role !== 'admin') {
+        return res.status(403).json({ error: 'У вас нет прав для обновления приема.' });
+    }
+
+    try {
+        const currentSessionResult = await pool.query(
+            'SELECT * FROM sessions WHERE id = $1',
+            [id]
+        );
+
+        if (currentSessionResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Прием у терапевта не найден' });
+        }
+
+        const currentSession = currentSessionResult.rows[0];
+
+        const updatedPatientId = patient_id !== undefined ? patient_id : currentSession.patient_id;
+        const updatedTherapistId = therapist_id !== undefined ? therapist_id : currentSession.therapist_id;
+        const updatedDate = date !== undefined ? date : currentSession.date;
+        const updatedTime = time !== undefined ? time : currentSession.time;
+        const updatedNotes = notes !== undefined ? notes : currentSession.notes;
+
+        const result = await pool.query(
+            'UPDATE sessions SET patient_id = $1, therapist_id = $2, date = $3, time = $4, notes = $5 WHERE id = $6 RETURNING *',
+            [updatedPatientId, updatedTherapistId, updatedDate, updatedTime, updatedNotes, id]
+        );
+
+        res.json(result.rows[0]);
     } catch (err) {
         console.error(err);
-        res.status(500).json({ error: "Ошибка при удалении сессии" });
+        res.status(500).json({ error: 'Ошибка при обновлении приема.' });
+    }
+});
+
+
+router.delete('/sessions/:id', verifyToken, async (req, res) => {
+    const { id } = req.params;
+    const user = req.user;
+
+    if (!user || user.role !== 'admin') {
+        return res.status(403).json({ error: 'У вас нет прав для удаления приема.' });
+    }
+
+    try {
+        const result = await pool.query('DELETE FROM sessions WHERE id = $1 RETURNING *', [id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Сессия не найдена' });
+        }
+        res.json({ message: 'Прием успешно удален' });
+        } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Ошибка при удалении приема.' });
     }
 });
 

@@ -1,82 +1,70 @@
-import router from './router.js'
-import pool from '../db.js'
-
-/// закончить со статус кодами ///
-// gодумать по моделям и функционалц (где? как?)
-// как разделить функционал между пользователем и админом?
-// как разделить авторизацию между юзером и админом
-// как разделить авторизацию между пациентами и терапевтами (нужна ли отдельная)
-// или if user = patient - выполняем то-то и то-то?
+import dotenv from 'dotenv';
+import pool from '../db_connection.js';
+import router from '../utils/router.js';
+import verifyToken from '../utils/verify_token.js';
+import bcrypt from 'bcrypt';
 
 
-function checkAuth(req, res, next) {
-    if (req.session.user) {
-        next();
-    } else {
-        res.redirect('/login');
+dotenv.config();
+
+
+// async function hashPassword(password) {
+//     const saltRounds = 10;
+//     return await bcrypt.hash(password, saltRounds);
+// }
+
+
+router.get('/users', verifyToken, async (req, res) => {
+    const user = req.user;
+    if (user.role !== 'admin') {
+        return res.status(403).json({ error: 'У вас нет прав доступа.' });
     }
-}
-
-router.get('/users', async (req, res) => {
     try {
-        const users = await pool.query('SELECT * FROM users');
-        res.status(200).json(users.rows);
+        const result = await pool.query('SELECT * FROM users');
+        res.json(result.rows);
     } catch (err) {
-        console.error("Не удалось получить пользователей", err);
-        res.status(500).json({ error: err.message });
+            console.error('Ошибка при получении пользователей:', err);
+        res.status(500).json({ error: 'Ошибка сервера' });
     }
 });
 
 
-router.get('/users', checkAuth, async (req, res) => {
-    res.sendFile(path.join(__dirname, '../public/login.html'));
-});
 
-
-router.post('/users', async(req, res) => {
-    const { username, password } = req.body;
-    const user = req.session.user;
-
-    try {
-        const result = await pool.query('INSERT INTO users (username, password) VALUES ($1, $2)', [username, password]);
-        res.status(201).json(result.rows[0]);
-    } catch (err) {
-        res.status(500).json({error: 'Ошибка при добавлении пользователя'})
+router.get('/users/:id', verifyToken, async (req, res) => {
+    const user = req.user;
+    if (user.role !== 'admin') {
+        return res.status(403).json({ error: 'У вас нет прав доступа.' });
     }
-});
-
-
-router.put('/users/:id', checkAuth, async (req, res) => {
     const { id } = req.params;
-    const { username, password } = req.body;
-
     try {
-        const result = await pool.query('UPDATE users SET username = $1, password = $2 WHERE id = $4', [username, password])
-
-        if (result.rowCount === 0) {
-            return res.status(404).json({ error: "Пользователь не найден" });
+        const result = await pool.query('SELECT id, username, role FROM users WHERE id = $1', [id]);
+            if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Пользователь не найден' });
         }
-        res.status(200).json({ message: "Пользователь обновлен", user: result.rows[0] })
+        res.json(result.rows[0]);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Ошибка в обновлении пользователя" }); 
+        console.error('Ошибка при получении пользователя:', err);
+        res.status(500).json({ error: 'Ошибка сервера' });
     }
 });
 
 
-router.delete('/users/:id', checkAuth, async (req, res) => {
+router.delete('/users/:id', verifyToken, async (req, res) => {
+    const user = req.user;
+    if (user.role !== 'admin') {
+        return res.status(403).json({ error: 'У вас нет прав доступа.' });
+    }
     const { id } = req.params;
     try {
         const result = await pool.query('DELETE FROM users WHERE id = $1', [id]);
         if (result.rowCount === 0) {
-            return res.status(404).json({ error: "Пользователь не найден" });
-        }
-        res.status(200).json({ message: "Пользователь удален" });
+        return res.status(404).json({ error: 'Пользователь не найден' });
+    }
+        res.json({ message: 'Пользователь удален' });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Ошибка при удалении пользователя" });
+        console.error('Ошибка при удалении пользователя:', err);
+        res.status(500).json({ error: 'Ошибка сервера' });
     }
 });
-
 
 export default router;
