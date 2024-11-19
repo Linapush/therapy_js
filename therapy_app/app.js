@@ -8,7 +8,6 @@ import userRoutes from './routes/users.js';
 import clientRoutes from './routes/patients.js';
 import sessionRoutes from './routes/sessions.js';
 import therapistsRoutes from './routes/therapists.js';
-import adminRoutes from './routes/admin.js';
 
 
 const app = express();
@@ -34,15 +33,8 @@ app.use('/', userRoutes);
 app.use('/', clientRoutes);
 app.use('/', sessionRoutes);
 app.use('/', therapistsRoutes);
-app.use('/', adminRoutes);
 
 
 app.listen(PORT, () => {
     console.log(`Сервер запущен на http://localhost:${PORT}`);
 });
-
-// в app.js будем создавать роли и логику для них
-// роль: пользователь и роль админ
-// пользователь: логинится, записывается к врачу - создается запись
-// админ: что-то делает
-// терапевт: что-то делает
