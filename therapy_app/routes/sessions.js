@@ -2,12 +2,23 @@ import dotenv from 'dotenv'
 import pool from '../db_connection.js';
 import router from '../utils/router.js';
 import verifyToken from '../utils/verify_token.js';
+import {check, validationResult} from 'express-validator';
 
 
 dotenv.config();
 
 
-router.get('/sessions', verifyToken, async (req, res) => {
+const validateSession = [
+    check('patient_id').isInt().withMessage('patient_id must be an integer'),
+    check('therapist_id').isInt().withMessage('therapist_id must be an integer'),
+    check('date').isDate().withMessage('date must be a valid date'),
+    check('time').isLength({min: 5, max: 5}).withMessage('time must be in HH:MM format'),
+    check('notes').optional({checkFalsy: true}),
+];
+
+
+
+router.get('/sessions', async (req, res) => {
 
     try {
         const session = await pool.query('SELECT * FROM sessions');
@@ -18,7 +29,7 @@ router.get('/sessions', verifyToken, async (req, res) => {
 }); 
 
 
-router.get('/sessions/:id', verifyToken, async (req, res) => {
+router.get('/sessions/:id', async (req, res) => {
     const { id } = req.params;
     try {
         const session = await pool.query('SELECT * FROM sessions WHERE id = $1', [id]);
@@ -32,7 +43,11 @@ router.get('/sessions/:id', verifyToken, async (req, res) => {
 });
 
 
-router.post('/sessions', verifyToken, async (req, res) => {    
+router.post('/sessions', verifyToken, validateSession, async (req, res) => {    
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array()}
+    );}
     const { patient_id, therapist_id, date, time, notes } = req.body;
     const user = req.user; 
 
@@ -81,6 +96,10 @@ router.post('/sessions', verifyToken, async (req, res) => {
 
 
 router.put('/sessions/:id', verifyToken, async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array()}
+    );}
     const { id } = req.params;
     const { patient_id, therapist_id, date, time, notes } = req.body;
     const user = req.user;

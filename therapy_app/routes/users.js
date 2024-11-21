@@ -2,16 +2,17 @@ import dotenv from 'dotenv';
 import pool from '../db_connection.js';
 import router from '../utils/router.js';
 import verifyToken from '../utils/verify_token.js';
-import bcrypt from 'bcrypt';
 
 
 dotenv.config();
 
 
-// async function hashPassword(password) {
-//     const saltRounds = 10;
-//     return await bcrypt.hash(password, saltRounds);
-// }
+const validateUser = [
+    check('username').isInt().withMessage('username must be a char'),
+    check('password').isInt().withMessage('password must be an integer'),
+    check('role').isDate().withMessage('date must be a char'),
+];
+
 
 
 router.get('/users', verifyToken, async (req, res) => {

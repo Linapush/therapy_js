@@ -3,15 +3,24 @@ import { fileURLToPath } from 'url';
 import bcrypt from 'bcrypt';
 import router from '../utils/router.js';
 import pool from '../db_connection.js';
-import auth_by_role from '../utils/auth_by_role.js';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv'
+import cookieParser from 'cookie-parser';
 
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+router.use(cookieParser());
 
 dotenv.config();
+
+
+function setAuthToken(res, token) {
+    res.cookie('token', token, {
+        maxAge: 3600000, // Токен живет 1 час
+        httpOnly: false,
+    });
+}
 
 
 const generateToken = (user) => {
@@ -27,27 +36,6 @@ const generateToken = (user) => {
     }
 };
 
-
-router.get('/token', async (req, res) => {
-    const { username } = req.body;
-    try {
-        const user = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
-        if (user.rows.length === 0) {
-            return res.status(404).json({ error: "Пользователь не найден." });
-        }
-        const token = generateToken(result.rows[0]);
-
-        if (token) {
-            console.log("Сгенерированный токен:", token);
-            res.json({ token });
-        } else {
-            res.status(500).json({ error: "Ошибка генерации токена" });
-        }
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Ошибка при получении токена.' });
-    }
-});
 
 router.get('/admin/', (req, res) => {
     res.redirect('/admin/login')
@@ -94,16 +82,16 @@ router.post('/register', async (req, res) => {
     try {
         const userCheck = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
         if (userCheck.rows.length > 0) {
-            req.session.errorMessage = 'Пользователь уже существует.';
+            alert('Такой пользователь уже существует')
+            console.log('Пользователь уже существует.');
             return res.redirect('/register');
         }
         const hashedPassword = await bcrypt.hash(password, 10);
         await pool.query('INSERT INTO users (username, password) VALUES ($1, $2)', [username, hashedPassword]);
-        req.session.successMessage = 'Пользователь успешно зарегистрирован.';
         res.redirect('/login');
     } catch (err) {
         console.error(err);
-        req.session.errorMessage = 'Ошибка при регистрации.';
+        console.log('Ошибка при регистрации.');
         res.redirect('/register');
     }
 });
@@ -111,22 +99,27 @@ router.post('/register', async (req, res) => {
 
 router.post('/login', async (req, res) => {
     const { username, password } = req.body;
-    console.log('Авторизация пользователя');
 
     try {
         const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
-        console.log(result);
 
         if (result.rows.length > 0) {
             const user = result.rows[0];
+            console.log('Результат SELECT:', user)
+            req.session.user = user;
+            console.log("Пользователь в сессии после аторизации:", req.session.user);
+            // req.session.user = {
+            //     id: user.id,
+            //     username: user.username,
+            //     role: user.role
+            // };            
             const isMatch = await bcrypt.compare(password, user.password);
-            console.log(isMatch);
-
             if (isMatch) {
-                req.session.user = username;
-                console.log("Пользователь в сессии после аторизации:", req.session.user);
-                const token = generateToken(user);
-                console.log("Сгенерированный токен:", token);
+                // const token = generateToken(user);
+                const token = generateToken(user.username, user.role);
+                console.log('token created: ', token);
+                setAuthToken(res, token);
+                console.log('Пользователь в сесии c токеном:', req.session.user, token)
                 res.redirect('/dashboard');
                 return;
             }
@@ -142,7 +135,7 @@ router.post('/login', async (req, res) => {
 
 router.post('/admin/login', async (req, res) => {
     const { username, password } = req.body;
-    console.log('Вход админа:', username);
+    console.log('Вход пользователя в админку:', username);
 
     try {
         const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
@@ -152,8 +145,9 @@ router.post('/admin/login', async (req, res) => {
         }
 
         const user = result.rows[0];
+        console.log('Результат SELECT:', user)
         if (user.role !== 'admin') {
-            return res.status(403).json({ error: 'У вас нет прав администратора' });
+            return res.redirect('/login');
         }
 
         const isMatch = await bcrypt.compare(password, user.password);
@@ -165,6 +159,9 @@ router.post('/admin/login', async (req, res) => {
                     username: user.username,
                     role: user.role
                 };
+                console.log('Пользователь в сесии c токеном:', req.session.user, token)
+                console.log(req.session)
+                res.cookie('token', token, { httpOnly: false });
                 return res.redirect('/admin/dashboard');
     
             } else {

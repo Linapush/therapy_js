@@ -17,11 +17,11 @@
                 sessionItem.className = 'card mb-3';
                 sessionItem.innerHTML = `
                     <div class="card-body">
-                        <h5 class="card-title">Прием #${session.id}</h5>
+                        <h5 class="card-title">Прием ${session.id}</h5>
                         <p class="card-text">Дата: ${session.date}</p>
                         <p class="card-text">Время: ${session.time}</p>
                         <p class="card-text">Заметки: ${session.notes || 'Нет заметок'}</p>
-                        <button class="btn btn-danger" onclick="deleteSession(${session.id})">Удалить</button>
+                        <!-- <button class="btn btn-danger" onclick="deleteSession(${session.id})">Отменить</button> -->
                     </div>
                 `;
                 sessionList.appendChild(sessionItem);
@@ -42,7 +42,7 @@
 
         <div class="row">
             <div class="col-lg-6">
-                <h2>Ваш прием у терапевта:</h2>
+                <h2>Ваши записи:</h2>
                 <div id="sessionList" class="list-group"></div>
             </div>
         </div>

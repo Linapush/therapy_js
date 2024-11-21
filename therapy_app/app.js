@@ -8,6 +8,10 @@ import userRoutes from './routes/users.js';
 import clientRoutes from './routes/patients.js';
 import sessionRoutes from './routes/sessions.js';
 import therapistsRoutes from './routes/therapists.js';
+import dotenv from 'dotenv'
+
+
+dotenv.config();
 
 
 const app = express();
@@ -20,10 +24,11 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
 app.use(session({
-    secret: 'your-secret-key',
+    secret: process.env.JWT_SECRET,
     resave: false,
     saveUninitialized: false,
-    cookie: { maxAge: 600000 } // Сессия на 10 минут
+    cookie: { secure: false },
+    httpOnly: false,
 }));
 
 app.use(express.static(path.join(__dirname, 'public')));
