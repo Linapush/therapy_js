@@ -5,10 +5,7 @@
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
-    "test": "jest"
-  },
-  "jest": {
-    "verbose": true
+    "test": "node --experimental-vm-modules node_modules/.bin/jest"
   },
   "keywords": [],
   "author": "",
@@ -38,6 +35,7 @@
     "jest": "^27.5.1",
     "mocha": "^10.8.2",
     "nodemon": "^3.1.7",
-    "pactum": "^3.7.4"
+    "pactum": "^3.7.4",
+    "supertest": "^7.0.0"
   }
 }

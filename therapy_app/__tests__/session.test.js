@@ -1,8 +1,7 @@
-import pool from '../db_connection.js';
+import pool, { query } from '../db_connection.js';
 import request from 'supertest';
 import app from '../app.js';
-import dotenv from 'dotenv'
-
+import dotenv from 'dotenv';
 
 dotenv.config();
 
@@ -13,7 +12,7 @@ jest.mock('../db_connection.js', () => ({
 
 
 afterEach(() => {
-    pool.query.mockClear();
+    query.mockClear();
 });
 
 

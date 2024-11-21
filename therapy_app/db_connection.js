@@ -1,9 +1,6 @@
-import dotenv from 'dotenv';
-import pkg from 'pg';
+import pg from 'pg';
 
-
-dotenv.config();
-const { Pool } = pkg;
+const { Pool } = pg;
 
 const pool = new Pool({
   user: 'linapush',
@@ -13,15 +10,7 @@ const pool = new Pool({
   port: 5432,
 });
 
-// const pool = new Pool({
-//   user: process.env.DB_USER,
-//   host: process.env.DB_HOST,
-//   database: process.env.DB_DATABASE,
-//   password: process.env.DB_PASSWORD,
-//   port: process.env.DB_PORT,
-// });
-
-
+export const query = (text, params) => pool.query(text, params);
 export default pool;
 
 

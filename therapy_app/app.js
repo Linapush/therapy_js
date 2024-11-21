@@ -43,3 +43,5 @@ app.use('/', therapistsRoutes);
 app.listen(PORT, () => {
     console.log(`Сервер запущен на http://localhost:${PORT}`);
 });
+
+export default app; 
