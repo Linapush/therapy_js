@@ -5,7 +5,10 @@
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest"
+  },
+  "jest": {
+    "verbose": true
   },
   "keywords": [],
   "author": "",
@@ -13,19 +16,28 @@
   "type": "module",
   "dependencies": {
     "bcrypt": "^5.1.1",
+    "bcryptjs": "^2.4.3",
     "body-parser": "^1.20.3",
+    "cookie-parser": "^1.4.7",
     "dotenv": "^16.4.5",
+    "ejs": "^3.1.10",
     "express": "^4.21.1",
     "express-session": "^1.18.1",
     "express-validator": "^7.2.0",
     "jsonwebtoken": "^9.0.2",
+    "middleware": "^1.0.0",
     "path": "^0.12.7",
-    "pg": "^8.13.0"
+    "pg": "^8.13.1",
+    "sequelize": "^6.37.5",
+    "sequelize-cli": "^6.6.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.12.0",
     "eslint": "^9.12.0",
     "globals": "^15.11.0",
-    "nodemon": "^3.1.7"
+    "jest": "^27.5.1",
+    "mocha": "^10.8.2",
+    "nodemon": "^3.1.7",
+    "pactum": "^3.7.4"
   }
 }
