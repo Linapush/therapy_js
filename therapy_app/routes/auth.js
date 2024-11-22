@@ -6,6 +6,7 @@ import pool from '../db_connection.js';
 import jwt from 'jsonwebtoken';
 import dotenv from 'dotenv'
 import cookieParser from 'cookie-parser';
+import { body } from 'express-validator';
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -15,12 +16,12 @@ router.use(cookieParser());
 dotenv.config();
 
 
-function setAuthToken(res, token) {
-    res.cookie('token', token, {
-        maxAge: 3600000, // Токен живет 1 час
-        httpOnly: false,
-    });
-}
+// function setAuthToken(res, token) {
+//     res.cookie('token', token, {
+//         maxAge: 3600000,
+//         httpOnly: false,
+//     });
+// }
 
 
 const generateToken = (user) => {
@@ -29,7 +30,15 @@ const generateToken = (user) => {
             throw new Error("JWT_SECRET не задан");
         }
 
-        return jwt.sign({ id: user.id, username: user.username, role: user.role }, process.env.JWT_SECRET, { expiresIn: '24h' });
+        return jwt.sign(
+            {
+                id: user.id,
+                username: user.username,
+                role: user.role
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: '24h' }
+        );
     } catch (error) {
         console.error("Ошибка генерации токена:", error);
         return null;
@@ -57,24 +66,6 @@ router.get('/login', (req, res) => {
 });
 
 
-// router.post('/register', async (req, res) => {
-//     console.log('Регистрация пользователя');
-//     const { username, password } = req.body;
-//     try {
-//         const userCheck = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
-//         if (userCheck.rows.length > 0) {
-//             return res.send('Пользователь уже существует.').redirect('/login');
-//         }
-//         const hashedPassword = await bcrypt.hash(password, 10);
-//         await pool.query('INSERT INTO users (username, password) VALUES ($1, $2)', [username, hashedPassword]);
-//         res.json({ message: 'Пользователь успешно зарегистрирован.' });
-//         res.redirect('/login');
-//     } catch (err) {
-//         console.error(err);
-//         res.send('Ошибка при регистрации.');
-//     }
-// });
-
 
 router.post('/register', async (req, res) => {
     console.log('Регистрация пользователя');
@@ -97,31 +88,66 @@ router.post('/register', async (req, res) => {
 });
 
 
+// router.post('/login', async (req, res) => {
+//     const { username, password } = req.body;
+
+//     try {
+//         const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+
+//         if (result.rows.length > 0) {
+//             const user = result.rows[0];
+//             console.log('Результат SELECT:', user)
+//             req.session.user = user;
+//             console.log("Пользователь в сессии после аторизации:", req.session.user);           
+//             const isMatch = await bcrypt.compare(password, user.password);
+//             if (isMatch) {
+//                 // const token = generateToken(user);
+//                 const token = generateToken(user.username, user.role);
+//                 console.log('token created: ', token); 
+//                 console.log('Пользователь в сесии c токеном:', req.session.user, token)
+//                 res.redirect('/dashboard');
+//                 return;
+//             }
+//         }
+
+//         res.status(401).json({ error: 'Неверное имя пользователя или пароль.' });
+//     } catch (err) {
+//         console.error(err);
+//         res.status(500).json({ error: 'Ошибка при авторизации.' });
+//     }
+// });
+
+
 router.post('/login', async (req, res) => {
     const { username, password } = req.body;
 
     try {
         const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
-
         if (result.rows.length > 0) {
             const user = result.rows[0];
-            console.log('Результат SELECT:', user)
+            console.log('Результат SELECT:', user);
+
             req.session.user = user;
-            console.log("Пользователь в сессии после аторизации:", req.session.user);
-            // req.session.user = {
-            //     id: user.id,
-            //     username: user.username,
-            //     role: user.role
-            // };            
+            console.log("Пользователь в сессии после авторизации:", req.session.user);
+
             const isMatch = await bcrypt.compare(password, user.password);
             if (isMatch) {
-                // const token = generateToken(user);
-                const token = generateToken(user.username, user.role);
-                console.log('token created: ', token);
-                setAuthToken(res, token);
-                console.log('Пользователь в сесии c токеном:', req.session.user, token)
-                res.redirect('/dashboard');
-                return;
+                const token = generateToken(user);
+                res.cookie('token', token, {
+                    httpOnly: false,
+                    secure: false,
+                });
+                console.log('Token payload:', jwt.decode(token));
+
+                if (!token) {
+                    return res.status(500).json({ error: 'Ошибка при генерации токена.' });
+                }
+
+                console.log('Token created:', token);
+                console.log('Пользователь в сессии с токеном:', req.session.user, token);
+                req.token = token;
+
+                return res.redirect("/dashboard")
             }
         }
 
@@ -133,6 +159,50 @@ router.post('/login', async (req, res) => {
 });
 
 
+// router.post('/admin/login', async (req, res) => {
+//     const { username, password } = req.body;
+//     console.log('Вход пользователя в админку:', username);
+
+//     try {
+//         const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+
+//         if (result.rows.length === 0) {
+//             return res.status(401).json({ error: 'Пользователь не найден' });
+//         }
+
+//         const user = result.rows[0];
+//         console.log('Результат SELECT:', user)
+//         if (user.role !== 'admin') {
+//             return res.redirect('/login');
+//         }
+
+//         const isMatch = await bcrypt.compare(password, user.password);
+//         if (isMatch) {
+//             const token = generateToken(user);
+//             if(token){
+//                 req.session.user = {
+//                     id: user.id,
+//                     username: user.username,
+//                     role: user.role
+//                 };
+//                 console.log('Пользователь в сесии c токеном:', req.session.user, token)
+//                 console.log(req.session)
+//                 res.cookie('token', token, { httpOnly: false });
+//                 return res.redirect('/admin/dashboard');
+    
+//             } else {
+//                 res.status(500).json({ error: 'Ошибка генерации токена' });
+//             }
+//         } else {
+//             res.status(401).json({ error: 'Неправильный пароль' });
+//         }
+//     } catch (err) {
+//         console.error('Ошибка авторизации администратора:', err);
+//         res.status(500).json({ error: 'Ошибка сервера' });
+//     }
+// });
+
+
 router.post('/admin/login', async (req, res) => {
     const { username, password } = req.body;
     console.log('Вход пользователя в админку:', username);
@@ -141,38 +211,44 @@ router.post('/admin/login', async (req, res) => {
         const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
 
         if (result.rows.length === 0) {
+            console.warn('Пользователь не найден');
             return res.status(401).json({ error: 'Пользователь не найден' });
         }
 
         const user = result.rows[0];
-        console.log('Результат SELECT:', user)
+        console.log('Результат SELECT:', user);
+
         if (user.role !== 'admin') {
-            return res.redirect('/login');
+            console.warn('Пользователь не является администратором');
+            return res.status(403).json({ error: 'Доступ запрещен. Только администраторы могут войти.' });
         }
 
         const isMatch = await bcrypt.compare(password, user.password);
-        if (isMatch) {
-            const token = generateToken(user);
-            if(token){
-                req.session.user = {
-                    id: user.id,
-                    username: user.username,
-                    role: user.role
-                };
-                console.log('Пользователь в сесии c токеном:', req.session.user, token)
-                console.log(req.session)
-                res.cookie('token', token, { httpOnly: false });
-                return res.redirect('/admin/dashboard');
-    
-            } else {
-                res.status(500).json({ error: 'Ошибка генерации токена' });
-            }
-        } else {
-            res.status(401).json({ error: 'Неправильный пароль' });
+        if (!isMatch) {
+            console.warn('Неправильный пароль');
+            return res.status(401).json({ error: 'Неправильный пароль' });
         }
+
+        const token = generateToken(user);
+        if (!token) {
+            console.error('Ошибка генерации токена');
+            return res.status(500).json({ error: 'Ошибка генерации токена' });
+        }
+
+        req.session.user = {
+            id: user.id,
+            username: user.username,
+            role: user.role
+        };
+        console.log('Пользователь в сессии с токеном:', req.session.user, token);
+
+        res.cookie('token', token, { httpOnly: false, secure: false });
+        console.log('Куки с токеном установлены:', res.getHeaders()['set-cookie']);
+
+        return res.redirect('/admin/dashboard');
     } catch (err) {
-        console.error('Ошибка авторизации администратора:', err);
-        res.status(500).json({ error: 'Ошибка сервера' });
+        console.error('Ошибка авторизации администратора:', err.message);
+        return res.status(500).json({ error: 'Ошибка сервера' });
     }
 });
 
@@ -199,6 +275,7 @@ router.get('/therapist/dashboard', (req, res) => {
 
 
 router.get('/logout', (req, res) => {
+    res.clearCookie('token');
     req.session.destroy();
     res.redirect('/login');
 });
