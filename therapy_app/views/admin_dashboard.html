@@ -9,10 +9,7 @@
         async function loadSessions() {
 
             const response = await fetch('/sessions', {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+                method: 'GET'
             });
             
             const sessions = await response.json();
@@ -45,13 +42,7 @@
         async function deleteSession(id) {
             await fetch(`/sessions/${id}`, {
                 method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
             });
-            console.log("Токен после fetch запроса DELETE:", token)
-            loadSessions();
-
         }
         
         async function updateTime(id) {
@@ -59,13 +50,7 @@
         
             const response = await fetch(`/sessions/${id}`, {
                 method: 'PUT',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
             });
-            console.log("Токен после fetch запроса UPDATE:", token)
-                loadSessions();
             }
 
         window.onload = loadSessions;
@@ -84,7 +69,7 @@
 
             <div class="col-lg-5">
                 <h3>Добавить прием терапевта:</h3>
-                <form action="/tasks" method="POST">
+                <form action="/sessions" method="POST">
                     <div class="mb-3">
                         <label for="patient_id" class="form-label">Пациент</label>
                         <input type="text" name="patient_id" id="patient_id" class="form-control" required>
