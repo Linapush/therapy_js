@@ -18,7 +18,7 @@ dotenv.config();
 
 
 const app = express();
-const PORT = 8005;
+const PORT = 8000;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,9 +31,8 @@ app.use(cors({
     exposedHeaders: ['Authorization'],
 }));
 
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(bodyParser.json());
-
+app.use(express.urlencoded({ extended: true })); // using express
+// app.use(bodyParser.json()); // not using body parser
 app.use(cookieParser());
 
 app.use(session({
@@ -48,7 +47,7 @@ app.use(session({
 }));
 
 app.get('/', (req, res) => {
-    res.sendFile(path.join(process.cwd(), 'public', 'user_pages', 'index.html'));
+    res.sendFile(path.join(__dirname, 'public', 'user_pages', 'index.html'));
 });
 
 app.get('/test-error', (req, res, next) => {
@@ -70,4 +69,4 @@ const therapy_app = app.listen(PORT, () => {
     console.log(`Сервер запущен на http://localhost:${PORT}`);
 });
 
-export default therapy_app; 
+export default therapy_app;

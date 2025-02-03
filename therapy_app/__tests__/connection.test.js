@@ -1,151 +1,200 @@
-import request from 'supertest';
-import therapy_app from '../app.js';
 
+import supertest from 'supertest';
+import app from '../app.js';
 
-describe('app routes', () => {
-    afterAll(() => {
-        therapy_app.close();
-    });
+const requestWithSupertest = supertest(app);
 
-    it('should serve the index.html on GET /', async () => {
-        const res = await request(therapy_app).get('/');
+let token = "";
+let postId = "";
+
+describe("test", () => {
+    it("login", async () => {
+        let user = {
+            "username":"user1",
+            "password":"user1",
+        }
+        const res = await requestWithSupertest
+            .post("/login")
+            .send(user)
+            .expect(200)
+        token = res.body.token;
         expect(res.statusCode).toBe(200);
-        expect(res.header['content-type']).toContain('text/html');
     });
 
-    it('should handle 404 for unknown routes', async () => {
-        const res = await request(therapy_app).get('/unknown-route');
+    it("should return all posts", async () => {
+        const res = await requestWithSupertest
+            .get("/posts")
+            .set('Authorization', `Bearer ${token}`)
+            .expect(200);
+        expect(res.statusCode).toBe(200);
+    });
+
+    it("should return main page", async () => {
+        const res = await requestWithSupertest
+            .get("/")
+            .set('Authorization', `Bearer ${token}`)
+            .expect(200)
+        expect(res.statusCode).toBe(200);
+    });
+
+    it("should return admin page", async () => {
+        const res = await requestWithSupertest
+            .get("/")
+            .set('Authorization', `Bearer ${token}`)
+            .expect(200)
+        expect(res.statusCode).toBe(200);
+    });
+
+    it("create post", async () => {
+        let post = {
+            "title":"test create post",
+            "body":"test create post",
+        }
+        const res = await requestWithSupertest
+            .post("/create-post")
+            .set('Authorization', `Bearer ${token}`)
+            .send(post);
+            expect(res.statusCode).toBe(200);
+
+    });
+
+    it("create post page", async () => {
+        const res = await requestWithSupertest
+            .get("/create-post")
+            .set('Authorization', `Bearer ${token}`);
+        expect(res.statusCode).toBe(200);
+    });
+
+    it("add post", async () => {
+        let post = {
+            "title":"3 post from me",
+            "body":"hi, i'm here",
+        }
+        const res = await requestWithSupertest
+            .post("/add-post")
+            .set('Authorization', `Bearer ${token}`)
+            .send(post);
+        postId = res.body._id
+        console.log(postId)
+        expect(res.statusCode).toBe(200);
+    });
+
+    it("create post invalid", async () => {
+        let post = {
+            "title":"post without body",
+            "body":"",
+        }
+        const res = await requestWithSupertest
+            .post("/create-post")
+            .set('Authorization', `Bearer ${token}`)
+            .send(post)
+        expect(res.statusCode).toBe(404);
+
+    });
+
+    it("add post invalid", async () => {
+        let post = {
+            "title":"3 post from me",
+            "body":"",
+        }
+        const res = await requestWithSupertest
+            .post("/add-post")
+            .set('Authorization', `Bearer ${token}`)
+            .send(post);
         expect(res.statusCode).toBe(404);
     });
 
-    it('should handle simulated error on /test-error', async () => {
-        const res = await request(therapy_app).get('/test-error');
-        expect(res.statusCode).toBe(500);
-        expect(res.text).toContain('Ошибка транзакции');
+    it("add post page", async () => {
+        const res = await requestWithSupertest
+            .get("/add-post")
+            .set('Authorization', `Bearer ${token}`);
+        expect(res.statusCode).toBe(200);
     });
+
+    it("auth page", async () => {
+        const res = await requestWithSupertest
+            .get("/auth");
+        expect(res.statusCode).toBe(200);
+    });
+
+    it("show one post", async () => {
+        const res = await requestWithSupertest
+            .get("/one-post/" + postId)
+            .set('Authorization', `Bearer ${token}`);
+        expect(res.statusCode).toBe(200);
+    });
+
+    it("show post page", async () => {
+        const res = await requestWithSupertest
+            .get("/post/" + postId)
+            .set('Authorization', `Bearer ${token}`);
+        expect(res.statusCode).toBe(200);
+    });
+
+    it("edit post", async () => {
+        let post = {
+            "title":"edit post",
+            "body":"edit body",
+        }
+        console.log("'/edit-post/' + postId")
+        console.log("/edit-post/" + postId)
+        const res = await requestWithSupertest
+            .put("/edit-post/" + postId)
+            .set('Authorization', `Bearer ${token}`)
+            .send(post);
+        expect(res.statusCode).toBe(200);
+    });
+
+    it("edit post page", async () => {
+        const res = await requestWithSupertest
+            .get("/edit-post/" + postId)
+            .set('Authorization', `Bearer ${token}`);
+        expect(res.statusCode).toBe(200);
+    });
+
+    it("delete post", async () => {
+        const res = await requestWithSupertest
+            .delete("/delete-post/" + postId)
+            .set('Authorization', `Bearer ${token}`);
+        expect(res.statusCode).toBe(200);
+    });
+
+    it("registration", async () => {
+        let user = {
+            "username":"userTest",
+            "password":"userTest",
+        }
+        const res = await requestWithSupertest
+            .post("/registration")
+            .send(user);
+            expect(res.statusCode).toBe(200);
+        await removeUserFromDatabase(user);
+    });
+
+    it("registration invalid", async () => {
+        let user = {
+            "username":"userTestInvalid",
+            "password":"123",
+        }
+        const res = await requestWithSupertest
+            .post("/registration")
+            .send(user);
+        expect(res.statusCode).toBe(400);
+    });
+
+    it("login invalid", async () => {
+        let user = {
+            "username":"userInvalid",
+            "password":"12345",
+        }
+        const res = await requestWithSupertest
+            .post("/login")
+            .send(user)
+        expect(res.statusCode).toBe(400);
+    });
+
+    async function removeUserFromDatabase(user) {
+        const User = await import('../server/models/User.js');
+        await User.default.findOneAndRemove({ username: user.username });
+    }
 });
-
-
-// describe('POST /sessions', () => {
-//     it('should create a new session with valid data', async () => {
-//         const mockSessionData = { patient_id: 1, therapist_id: 2, date: '2024-03-15', time: '10:00', notes: 'Test notes' };
-//         pool.query.mockResolvedValue({ rows: [ {id: 1, ...mockSessionData} ] }); // Mock successful insertion
-
-//         const res = await request(app)
-//             .post('/sessions')
-//             .set('Authorization', `Bearer ${process.env.JWT_TOKEN}`)
-//             .send(mockSessionData);
-
-//         expect(res.statusCode).toBe(201);
-//         expect(res.body.message).toBe('Session added successfully');
-//         expect(pool.query).toHaveBeenCalledWith(
-//             'INSERT INTO sessions (patient_id, therapist_id, date, time, notes) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-//             [mockSessionData.patient_id, mockSessionData.therapist_id, mockSessionData.date, mockSessionData.time, mockSessionData.notes]
-//         );
-//     });
-
-
-//     it('should return 400 error for invalid data', async () => {
-//         const mockInvalidSessionData = { patient_id: 'abc', therapist_id: 2, date: '2024-03-15', time: '10:00', notes: 'Test notes' };
-
-//         const res = await request(app)
-//             .post('/sessions')
-//             .set('Authorization', 'Bearer <your_test_token>')
-//             .send(mockInvalidSessionData);
-
-//         expect(res.statusCode).toBe(400);
-//         expect(res.body.errors).toBeDefined();
-//     });
-
-
-//     it('should return 403 for unauthorized access', async () => {
-//         const mockSessionData = { patient_id: 1, therapist_id: 2, date: '2024-03-15', time: '10:00', notes: 'Test notes' };
-//         const res = await request(app)
-//             .post('/sessions')
-//             .send(mockSessionData);
-
-//         expect(res.statusCode).toBe(403);
-//     });
-
-// });
-
-
-// describe('GET /sessions', () => {
-//     it('should return all sessions', async () => {
-//         const mockSessions = [{ id: 1, patient_id: 1, therapist_id: 2, date: '2024-03-15', time: '10:00', notes: 'Test notes' },
-//         { id: 2, patient_id: 3, therapist_id: 4, date: '2024-03-16', time: '14:30', notes: 'Another session' }];
-//         pool.query.mockResolvedValue({ rows: mockSessions });
-
-//         const res = await request(app).get('/sessions');
-//         expect(res.statusCode).toBe(200);
-//         expect(res.body).toEqual(mockSessions);
-//         expect(pool.query).toHaveBeenCalledWith('SELECT * FROM sessions');
-//     });
-
-//     it('should handle database errors', async () => {
-//         pool.query.mockRejectedValue(new Error('Database error'));
-//         const res = await request(app).get('/sessions');
-//         expect(res.statusCode).toBe(500);
-//         expect(res.body.error).toBeDefined();
-//     });
-// });
-
-
-// describe('GET /sessions/:id', () => {
-//     it('should return a specific session', async () => {
-//         const mockSession = { id: 1, patient_id: 1, therapist_id: 2, date: '2024-03-15', time: '10:00', notes: 'Test notes' };
-//         pool.query.mockResolvedValue({ rows: [mockSession] });
-
-//         const res = await request(app).get('/sessions/1');
-//         expect(res.statusCode).toBe(200);
-//         expect(res.body).toEqual(mockSession);
-//         expect(pool.query).toHaveBeenCalledWith('SELECT * FROM sessions WHERE id = $1', [1]);
-//     });
-
-//     it('should return 404 if session not found', async () => {
-//         pool.query.mockResolvedValue({ rows: [] });
-//         const res = await request(app).get('/sessions/999');
-//         expect(res.statusCode).toBe(404);
-//         expect(res.body.error).toBeDefined();
-//     });
-
-//     it('should handle database errors', async () => {
-//         pool.query.mockRejectedValue(new Error('Database error'));
-//         const res = await request(app).get('/sessions/1');
-//         expect(res.statusCode).toBe(500);
-//         expect(res.body.error).toBeDefined();
-//     });
-// });
-
-
-// describe('PUT /sessions/:id', () => {
-//     it('should update a session', async () => {
-//         const mockUpdatedSession = { patient_id: 1, therapist_id: 2, date: '2024-03-16', time: '14:00', notes: 'Updated notes' };
-//         pool.query.mockResolvedValueOnce({rows: [{id:1, ...mockUpdatedSession}]})
-//         .mockResolvedValueOnce({rows: [{id:1, ...mockUpdatedSession}]});
-
-//         const res = await request(app)
-//             .put('/sessions/1')
-//             .set('Authorization', `Bearer ${process.env.JWT_TOKEN}`) 
-//             .send(mockUpdatedSession);
-
-//         expect(res.statusCode).toBe(200);
-//         expect(res.body).toEqual(mockUpdatedSession);
-//         expect(pool.query).toHaveBeenCalledTimes(2);
-//     });
-
-
-// });
-
-// describe('DELETE /sessions/:id', () => {
-//     it('should delete a session', async () => {
-//         pool.query.mockResolvedValue({ rows: [{ id: 1 }] });
-//         const res = await request(app)
-//             .delete('/sessions/1')
-//             .set('Authorization', `Bearer ${process.env.JWT_TOKEN}`);
-
-//         expect(res.statusCode).toBe(200);
-//         expect(res.body.message).toBe('Session deleted successfully');
-//         expect(pool.query).toHaveBeenCalledWith('DELETE FROM sessions WHERE id = $1 RETURNING *', [1]);
-//     });
-// });
