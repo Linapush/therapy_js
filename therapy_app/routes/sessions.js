@@ -1,7 +1,7 @@
 import dotenv from 'dotenv'
 import pool from '../db_connection.js';
 import router from '../utils/router.js';
-import verifyToken from '../utils/verify_token.js';
+import checkAdminRole from '../utils/verify_token.js';
 import {check, validationResult, body} from 'express-validator';
 
 
@@ -52,10 +52,11 @@ router.get('/sessions/:id', async (req, res) => {
 });
 
 
-router.post('/sessions', verifyToken(['admin']), validateSession, async (req, res) => {
+router.post('/sessions', checkAdminRole, validateSession, async (req, res) => {
     console.log('Тело запроса:', req.body);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+        console.log('Ошибки валидации:', errors.array());
         return res.status(400).json({ errors: errors.array() });
     }
 
@@ -78,7 +79,7 @@ router.post('/sessions', verifyToken(['admin']), validateSession, async (req, re
 });
 
 
-router.put('/sessions/:id', verifyToken(['admin']), validateSession, async (req, res) => {
+router.put('/sessions/:id', checkAdminRole, validateSession, async (req, res) => {
     console.log('Запрос PUT /sessions/:id получен');
     
     const errors = validationResult(req);
@@ -94,13 +95,8 @@ router.put('/sessions/:id', verifyToken(['admin']), validateSession, async (req,
 
     try {
         console.log(`Поиск приема с id ${id}`);
-        const currentSessionResult = await pool.query(
-            'SELECT * FROM sessions WHERE id = $1',
-            [id]
-        );
-
+        const currentSessionResult = await pool.query('SELECT * FROM sessions WHERE id = $1', [id]);
         if (currentSessionResult.rows.length === 0) {
-            console.error(`Прием с id ${id} не найден`);
             return res.status(404).json({ error: 'Прием у терапевта не найден' });
         }
 
@@ -111,14 +107,6 @@ router.put('/sessions/:id', verifyToken(['admin']), validateSession, async (req,
         const updatedDate = date !== undefined ? date : currentSession.date;
         const updatedTime = time !== undefined ? time : currentSession.time;
         const updatedNotes = notes !== undefined ? notes : currentSession.notes;
-
-        console.log('Обновление с данными:', {
-            updatedPatientId,
-            updatedTherapistId,
-            updatedDate,
-            updatedTime,
-            updatedNotes
-        });
 
         const result = await pool.query(
             'UPDATE sessions SET patient_id = $1, therapist_id = $2, date = $3, time = $4, notes = $5 WHERE id = $6 RETURNING *',
@@ -136,7 +124,7 @@ router.put('/sessions/:id', verifyToken(['admin']), validateSession, async (req,
 
 
 
-router.delete('/sessions/:id', verifyToken(['admin']), async (req, res) => {
+router.delete('/sessions/:id', checkAdminRole, async (req, res) => {
     const { id } = req.params;
     const user = req.user;
 
@@ -150,7 +138,6 @@ router.delete('/sessions/:id', verifyToken(['admin']), async (req, res) => {
         `);
 
         res.status(200).json({ message: 'Прием удален' });
-        loadSessions();
         } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Ошибка при удалении приема.' });

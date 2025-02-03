@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 import pool from '../db_connection.js';
 import router from '../utils/router.js';
 import verifyToken from '../utils/verify_token.js';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 
 
 dotenv.config();
